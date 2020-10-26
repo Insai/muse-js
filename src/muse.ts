@@ -16,20 +16,7 @@ import { decodeResponse, encodeCommand, observableCharacteristic } from './lib/m
 
 export { zipSamples, EEGSample } from './lib/zip-samples';
 export { EEGReading, TelemetryData, AccelerometerData, GyroscopeData, XYZ, MuseControlResponse, MuseDeviceInfo };
-
-export const MUSE_SERVICE = 0xfe8d;
-const CONTROL_CHARACTERISTIC = '273e0001-4c4d-454d-96be-f03bac821358';
-const TELEMETRY_CHARACTERISTIC = '273e000b-4c4d-454d-96be-f03bac821358';
-const GYROSCOPE_CHARACTERISTIC = '273e0009-4c4d-454d-96be-f03bac821358';
-const ACCELEROMETER_CHARACTERISTIC = '273e000a-4c4d-454d-96be-f03bac821358';
-const EEG_CHARACTERISTICS = [
-    '273e0003-4c4d-454d-96be-f03bac821358',
-    '273e0004-4c4d-454d-96be-f03bac821358',
-    '273e0005-4c4d-454d-96be-f03bac821358',
-    '273e0006-4c4d-454d-96be-f03bac821358',
-    '273e0007-4c4d-454d-96be-f03bac821358',
-];
-export const EEG_FREQUENCY = 256;
+import * as c from './lib/constants';
 
 // These names match the characteristics defined in EEG_CHARACTERISTICS above
 export const channelNames = ['TP9', 'AF7', 'AF8', 'TP10', 'AUX'];
@@ -58,13 +45,13 @@ export class MuseClient {
             this.gatt = gatt;
         } else {
             const device = await navigator.bluetooth.requestDevice({
-                filters: [{ services: [MUSE_SERVICE] }],
+                filters: [{ services: [c.MUSE_SERVICE] }],
             });
             this.gatt = await device.gatt!.connect();
         }
         this.deviceName = this.gatt.device.name || null;
 
-        const service = await this.gatt.getPrimaryService(MUSE_SERVICE);
+        const service = await this.gatt.getPrimaryService(c.MUSE_SERVICE);
         fromEvent(this.gatt.device, 'gattserverdisconnected')
             .pipe(first())
             .subscribe(() => {
@@ -73,7 +60,7 @@ export class MuseClient {
             });
 
         // Control
-        this.controlChar = await service.getCharacteristic(CONTROL_CHARACTERISTIC);
+        this.controlChar = await service.getCharacteristic(c.CONTROL_CHARACTERISTIC);
         this.rawControlData = (await observableCharacteristic(this.controlChar)).pipe(
             map((data) => decodeResponse(new Uint8Array(data.buffer))),
             share(),
@@ -81,15 +68,15 @@ export class MuseClient {
         this.controlResponses = parseControl(this.rawControlData);
 
         // Battery
-        const telemetryCharacteristic = await service.getCharacteristic(TELEMETRY_CHARACTERISTIC);
+        const telemetryCharacteristic = await service.getCharacteristic(c.TELEMETRY_CHARACTERISTIC);
         this.telemetryData = (await observableCharacteristic(telemetryCharacteristic)).pipe(map(parseTelemetry));
 
         // Gyroscope
-        const gyroscopeCharacteristic = await service.getCharacteristic(GYROSCOPE_CHARACTERISTIC);
+        const gyroscopeCharacteristic = await service.getCharacteristic(c.GYROSCOPE_CHARACTERISTIC);
         this.gyroscopeData = (await observableCharacteristic(gyroscopeCharacteristic)).pipe(map(parseGyroscope));
 
         // Accelerometer
-        const accelerometerCharacteristic = await service.getCharacteristic(ACCELEROMETER_CHARACTERISTIC);
+        const accelerometerCharacteristic = await service.getCharacteristic(c.ACCELEROMETER_CHARACTERISTIC);
         this.accelerometerData = (await observableCharacteristic(accelerometerCharacteristic)).pipe(
             map(parseAccelerometer),
         );
@@ -99,9 +86,9 @@ export class MuseClient {
         // EEG
         this.eegCharacteristics = [];
         const eegObservables = [];
-        const channelCount = this.enableAux ? EEG_CHARACTERISTICS.length : 4;
+        const channelCount = this.enableAux ? c.EEG_CHARACTERISTICS.length : 4;
         for (let channelIndex = 0; channelIndex < channelCount; channelIndex++) {
-            const characteristicId = EEG_CHARACTERISTICS[channelIndex];
+            const characteristicId = c.EEG_CHARACTERISTICS[channelIndex];
             const eegChar = await service.getCharacteristic(characteristicId);
             eegObservables.push(
                 (await observableCharacteristic(eegChar)).pipe(
@@ -120,6 +107,13 @@ export class MuseClient {
         }
         this.eegReadings = merge(...eegObservables);
         this.connectionStatus.next(true);
+
+        // TODO: check for muse2 and museS
+        // PPG
+        c.PPG_CHARACTERISTICS.map(async (charId) => {
+            const ppgChar = await service.getCharacteristic(charId);
+            // console.log(ppgChar);
+        });
     }
 
     async sendCommand(cmd: string) {
@@ -143,7 +137,12 @@ export class MuseClient {
     }
 
     async deviceInfo() {
-        const resultListener = this.controlResponses.pipe(filter((r) => !!r.fw), take(1)).toPromise();
+        const resultListener = this.controlResponses
+            .pipe(
+                filter((r) => !!r.fw),
+                take(1),
+            )
+            .toPromise();
         await this.sendCommand('v1');
         return resultListener as Promise<MuseDeviceInfo>;
     }
@@ -163,7 +162,7 @@ export class MuseClient {
 
     private getTimestamp(eventIndex: number) {
         const SAMPLES_PER_READING = 12;
-        const READING_DELTA = 1000 * (1.0 / EEG_FREQUENCY) * SAMPLES_PER_READING;
+        const READING_DELTA = 1000 * (1.0 / c.EEG_FREQUENCY) * SAMPLES_PER_READING;
         if (this.lastIndex === null || this.lastTimestamp === null) {
             this.lastIndex = eventIndex;
             this.lastTimestamp = new Date().getTime() - READING_DELTA;
