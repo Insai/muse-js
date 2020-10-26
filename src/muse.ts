@@ -31,11 +31,13 @@ export class MuseClient {
     gyroscopeData: Observable<GyroscopeData>;
     accelerometerData: Observable<AccelerometerData>;
     eegReadings: Observable<EEGReading>;
+    ppgReadings: Observable<unknown>;
     eventMarkers: Subject<EventMarker>;
 
     private gatt: BluetoothRemoteGATTServer | null = null;
     private controlChar: BluetoothRemoteGATTCharacteristic;
     private eegCharacteristics: BluetoothRemoteGATTCharacteristic[];
+    private ppgCharacteristics: BluetoothRemoteGATTCharacteristic[];
 
     private lastIndex: number | null = null;
     private lastTimestamp: number | null = null;
@@ -106,14 +108,26 @@ export class MuseClient {
             this.eegCharacteristics.push(eegChar);
         }
         this.eegReadings = merge(...eegObservables);
-        this.connectionStatus.next(true);
 
         // TODO: check for muse2 and museS
         // PPG
-        c.PPG_CHARACTERISTICS.map(async (charId) => {
+        this.ppgCharacteristics = [];
+        const ppgObservables = [];
+        const ppgCount = c.PPG_CHARACTERISTICS.length;
+        for (let channelIndex = 0; channelIndex < ppgCount; channelIndex++) {
+            const charId = c.PPG_CHARACTERISTICS[channelIndex];
             const ppgChar = await service.getCharacteristic(charId);
-            // console.log(ppgChar);
-        });
+            ppgObservables.push(
+                (await observableCharacteristic(ppgChar)).pipe(
+                    map((data) => {
+                        return data;
+                    }),
+                ),
+            );
+            this.ppgCharacteristics.push(ppgChar);
+        }
+        this.ppgReadings = merge(...ppgObservables);
+        this.connectionStatus.next(true);
     }
 
     async sendCommand(cmd: string) {
@@ -122,7 +136,8 @@ export class MuseClient {
 
     async start() {
         await this.pause();
-        const preset = this.enableAux ? 'p20' : 'p21';
+        // const preset = this.enableAux ? 'p20' : 'p21';
+        const preset = 'p21';
         await this.controlChar.writeValue(encodeCommand(preset));
         await this.controlChar.writeValue(encodeCommand('s'));
         await this.resume();
