@@ -173,12 +173,12 @@ describe('zipPPG', () => {
             { data: [0.04, 3.04, 2.04], index: 100, timestamp: 1046.875 },
             { data: [0.05, 3.05, 2.05], index: 100, timestamp: 1062.5 },
             { data: [0.06, 3.06, 2.06], index: 100, timestamp: 1078.125 },
-            { data: [10.01, 11.01, 2.01], index: 100, timestamp: 1000 },
-            { data: [10.02, 11.02, 2.02], index: 100, timestamp: 1015.625 },
-            { data: [10.03, 11.03, 2.03], index: 100, timestamp: 1031.25 },
-            { data: [10.04, 11.04, 2.04], index: 100, timestamp: 1046.875 },
-            { data: [10.05, 11.05, 2.05], index: 100, timestamp: 1062.5 },
-            { data: [10.06, 11.06, 2.06], index: 100, timestamp: 1078.125 },
+            { data: [10.01, 11.01, 12.01], index: 101, timestamp: 1046.875 },
+            { data: [10.02, 11.02, 12.02], index: 101, timestamp: 1062.5 },
+            { data: [10.03, 11.03, 12.03], index: 101, timestamp: 1078.125 },
+            { data: [10.04, 11.04, 12.04], index: 101, timestamp: 1093.75 },
+            { data: [10.05, 11.05, 12.05], index: 101, timestamp: 1109.375 },
+            { data: [10.06, 11.06, 12.06], index: 101, timestamp: 1125 },
         ]);
     });
     it('should indicate missing samples with NaN', async () => {
