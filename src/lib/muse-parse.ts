@@ -23,9 +23,9 @@ export function decodeUnsigned12BitData(samples: Uint8Array) {
     // tslint:disable:no-bitwise
     for (let i = 0; i < samples.length; i++) {
         if (i % 3 === 0) {
-            samples12Bit.push(samples[i] << 4 | samples[i + 1] >> 4);
+            samples12Bit.push((samples[i] << 4) | (samples[i + 1] >> 4));
         } else {
-            samples12Bit.push((samples[i] & 0xf) << 8 | samples[i + 1]);
+            samples12Bit.push(((samples[i] & 0xf) << 8) | samples[i + 1]);
             i++;
         }
     }
@@ -34,15 +34,23 @@ export function decodeUnsigned12BitData(samples: Uint8Array) {
 }
 
 export function decodeEEGSamples(samples: Uint8Array) {
-    return decodeUnsigned12BitData(samples)
-        .map((n) => 0.48828125 * (n - 0x800));
+    return (
+        decodeUnsigned12BitData(samples)
+            // 12 bits on a 2 mVpp range
+            .map((n) => 0.48828125 * (n - 0x800))
+    );
+}
+
+export function decodePPGSamples(samples: Uint8Array) {
+    // TODO: decode 24 bit data?
+    return decodeUnsigned12BitData(samples);
 }
 
 export function parseTelemetry(data: DataView): TelemetryData {
     // tslint:disable:object-literal-sort-keys
     return {
         sequenceId: data.getUint16(0),
-        batteryLevel: data.getUint16(2) / 512.,
+        batteryLevel: data.getUint16(2) / 512,
         fuelGaugeVoltage: data.getUint16(4) * 2.2,
         // Next 2 bytes are probably ADC millivolt level, not sure
         temperature: data.getUint16(8),
@@ -67,9 +75,9 @@ function parseImuReading(data: DataView, scale: number) {
 }
 
 export function parseAccelerometer(data: DataView): AccelerometerData {
-    return parseImuReading(data, 0.0000610352);
+    return parseImuReading(data, 0.0000610352); // TODO: use constant ACC_SCALING Factor
 }
 
 export function parseGyroscope(data: DataView): GyroscopeData {
-    return parseImuReading(data, 0.0074768);
+    return parseImuReading(data, 0.0074768); // TODO: use constant GYRO
 }

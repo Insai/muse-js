@@ -1,6 +1,7 @@
 // tslint:disable:no-console
 
-import { channelNames, EEGReading, MuseClient } from './../../src/muse';
+import { read } from 'fs';
+import { channelNames, EEGReading, MuseClient, PPGReading } from './../../src/muse';
 
 (window as any).connect = async () => {
     const graphTitles = Array.from(document.querySelectorAll('.electrode-item h3'));
@@ -11,7 +12,7 @@ import { channelNames, EEGReading, MuseClient } from './../../src/muse';
         item.textContent = channelNames[index];
     });
 
-    function plot(reading: EEGReading) {
+    function plotEEG(reading: EEGReading) {
         const canvas = canvases[reading.electrode];
         const context = canvasCtx[reading.electrode];
         if (!context) {
@@ -23,7 +24,30 @@ import { channelNames, EEGReading, MuseClient } from './../../src/muse';
         context.clearRect(0, 0, canvas.width, canvas.height);
 
         for (let i = 0; i < reading.samples.length; i++) {
-            const sample = reading.samples[i] / 15.;
+            const sample = reading.samples[i] / 15;
+            if (sample > 0) {
+                context.fillRect(i * 25, height - sample, width, sample);
+            } else {
+                context.fillRect(i * 25, height, width, -sample);
+            }
+        }
+    }
+
+    function plotPPG(reading: PPGReading) {
+        // TODO: fix indexing
+        const canvas = canvases[reading.channel + 5];
+        const context = canvasCtx[reading.channel + 5];
+        if (!context) {
+            console.log('No Context');
+            return;
+        }
+        const width = canvas.width / 12.0;
+        const height = canvas.height / 2.0;
+        context.fillStyle = 'green';
+        context.clearRect(0, 0, canvas.width, canvas.height);
+
+        for (let i = 0; i < reading.samples.length; i++) {
+            const sample = reading.samples[i];
             if (sample > 0) {
                 context.fillRect(i * 25, height - sample, width, sample);
             } else {
@@ -33,6 +57,7 @@ import { channelNames, EEGReading, MuseClient } from './../../src/muse';
     }
 
     const client = new MuseClient();
+    client.enableAux = true; // TODO: enforces preset p21 needed for PPG
     client.connectionStatus.subscribe((status) => {
         console.log(status ? 'Connected!' : 'Disconnected');
     });
@@ -43,14 +68,18 @@ import { channelNames, EEGReading, MuseClient } from './../../src/muse';
         await client.start();
         document.getElementById('headset-name')!.innerText = client.deviceName;
         client.eegReadings.subscribe((reading) => {
-            plot(reading);
+            plotEEG(reading);
+        });
+        client.ppgReadings.subscribe((reading) => {
+            // console.log(reading)
+            plotPPG(reading);
         });
         client.telemetryData.subscribe((reading) => {
             document.getElementById('temperature')!.innerText = reading.temperature.toString() + '℃';
             document.getElementById('batteryLevel')!.innerText = reading.batteryLevel.toFixed(2) + '%';
         });
         client.accelerometerData.subscribe((accel) => {
-            const normalize = (v: number) => (v / 16384.).toFixed(2) + 'g';
+            const normalize = (v: number) => (v / 16384).toFixed(2) + 'g';
             document.getElementById('accelerometer-x')!.innerText = normalize(accel.samples[2].x);
             document.getElementById('accelerometer-y')!.innerText = normalize(accel.samples[2].y);
             document.getElementById('accelerometer-z')!.innerText = normalize(accel.samples[2].z);

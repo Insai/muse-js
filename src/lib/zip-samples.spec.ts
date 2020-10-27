@@ -1,7 +1,7 @@
 import { Observable, of } from 'rxjs';
 import { toArray } from 'rxjs/operators';
 
-import { zipSamples } from './zip-samples';
+import { zipPPG, zipSamples } from './zip-samples';
 
 // tslint:disable:object-literal-sort-keys
 
@@ -113,6 +113,85 @@ describe('zipSamples', () => {
             { index: 50, timestamp: 5003.90625, data: [0.02, NaN, 2.02, 3.02, 4.02] },
             { index: 50, timestamp: 5007.8125, data: [0.03, NaN, 2.03, 3.03, 4.03] },
             { index: 50, timestamp: 5011.71875, data: [0.04, NaN, 2.04, 3.04, 4.04] },
+        ]);
+    });
+});
+
+describe('zipPPG', () => {
+    it('should zip all ppg channels into one array', async () => {
+        const input = of(
+            {
+                channel: 2,
+                index: 100,
+                timestamp: 1000,
+                samples: [2.01, 2.02, 2.03, 2.04, 2.05, 2.06],
+            },
+            {
+                channel: 1,
+                index: 100,
+                timestamp: 1000,
+                samples: [1.01, 1.02, 1.03, 1.04, 1.05, 1.06],
+            },
+            {
+                channel: 0,
+                index: 100,
+                timestamp: 1000,
+                samples: [0.01, 0.02, 0.03, 0.04, 0.05, 0.06],
+            },
+            {
+                channel: 1,
+                index: 100,
+                timestamp: 1000,
+                samples: [3.01, 3.02, 3.03, 3.04, 3.05, 3.06],
+            },
+            {
+                channel: 2,
+                index: 101,
+                timestamp: 1046.875,
+                samples: [12.01, 12.02, 12.03, 12.04, 12.05, 12.06],
+            },
+            {
+                channel: 1,
+                index: 101,
+                timestamp: 1046.875,
+                samples: [11.01, 11.02, 11.03, 11.04, 11.05, 11.06],
+            },
+            {
+                channel: 0,
+                index: 101,
+                timestamp: 1046.875,
+                samples: [10.01, 10.02, 10.03, 10.04, 10.05, 10.06],
+            },
+        );
+
+        const zipped = zipPPG(input);
+        const result = await zipped.pipe(toArray()).toPromise();
+        expect(result).toEqual([
+            { data: [0.01, 3.01, 2.01], index: 100, timestamp: 1000 },
+            { data: [0.02, 3.02, 2.02], index: 100, timestamp: 1015.625 },
+            { data: [0.03, 3.03, 2.03], index: 100, timestamp: 1031.25 },
+            { data: [0.04, 3.04, 2.04], index: 100, timestamp: 1046.875 },
+            { data: [0.05, 3.05, 2.05], index: 100, timestamp: 1062.5 },
+            { data: [0.06, 3.06, 2.06], index: 100, timestamp: 1078.125 },
+            { data: [10.01, 11.01, 2.01], index: 100, timestamp: 1000 },
+            { data: [10.02, 11.02, 2.02], index: 100, timestamp: 1015.625 },
+            { data: [10.03, 11.03, 2.03], index: 100, timestamp: 1031.25 },
+            { data: [10.04, 11.04, 2.04], index: 100, timestamp: 1046.875 },
+            { data: [10.05, 11.05, 2.05], index: 100, timestamp: 1062.5 },
+            { data: [10.06, 11.06, 2.06], index: 100, timestamp: 1078.125 },
+        ]);
+    });
+    it('should indicate missing samples with NaN', async () => {
+        const input = of(
+            { index: 50, timestamp: 5000, channel: 2, samples: [2.01, 2.02, 2.03] },
+            { index: 50, timestamp: 5000, channel: 0, samples: [0.01, 0.02, 0.03] },
+        );
+        const zipped = zipPPG(input);
+        const result = await zipped.pipe(toArray()).toPromise();
+        expect(result).toEqual([
+            { data: [0.01, NaN, 2.01], index: 50, timestamp: 5000 },
+            { data: [0.02, NaN, 2.02], index: 50, timestamp: 5015.625 },
+            { data: [0.03, NaN, 2.03], index: 50, timestamp: 5031.25 },
         ]);
     });
 });
