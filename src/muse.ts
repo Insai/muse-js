@@ -1,6 +1,7 @@
 import { BehaviorSubject, fromEvent, merge, Observable, Subject } from 'rxjs';
 import { filter, first, map, share, take } from 'rxjs/operators';
 
+import * as c from './lib/constants';
 import {
     AccelerometerData,
     EEGReading,
@@ -8,6 +9,7 @@ import {
     GyroscopeData,
     MuseControlResponse,
     MuseDeviceInfo,
+    PPGReading,
     TelemetryData,
     XYZ,
 } from './lib/muse-interfaces';
@@ -20,12 +22,20 @@ import {
     parseTelemetry,
 } from './lib/muse-parse';
 import { decodeResponse, encodeCommand, observableCharacteristic } from './lib/muse-utils';
+// TODO: export constants for build
 
 export { zipSamples, EEGSample } from './lib/zip-samples';
-export { EEGReading, TelemetryData, AccelerometerData, GyroscopeData, XYZ, MuseControlResponse, MuseDeviceInfo };
-import * as c from './lib/constants';
+export {
+    EEGReading,
+    PPGReading,
+    TelemetryData,
+    AccelerometerData,
+    GyroscopeData,
+    XYZ,
+    MuseControlResponse,
+    MuseDeviceInfo,
+};
 
-// These names match the characteristics defined in EEG_CHARACTERISTICS above
 export const channelNames = ['TP9', 'AF7', 'AF8', 'TP10', 'AUX', 'PPG1', 'PPG2', 'PPG3'];
 
 export class MuseClient {
@@ -38,7 +48,7 @@ export class MuseClient {
     gyroscopeData: Observable<GyroscopeData>;
     accelerometerData: Observable<AccelerometerData>;
     eegReadings: Observable<EEGReading>;
-    ppgReadings: Observable<unknown>;
+    ppgReadings: Observable<PPGReading>;
     eventMarkers: Subject<EventMarker>;
 
     private gatt: BluetoothRemoteGATTServer | null = null;
@@ -129,8 +139,8 @@ export class MuseClient {
                     map((data) => {
                         const eventIndex = data.getUint16(0);
                         return {
+                            channel: channelIndex,
                             index: eventIndex,
-                            ppg_channel: channelIndex,
                             // TODO: start from 2 index??
                             samples: decodePPGSamples(new Uint8Array(data.buffer).subarray(2)),
                             timestamp: this.getTimestamp(eventIndex, c.PPG_FREQUENCY, c.PPG_SAMPLES_PER_READING),
