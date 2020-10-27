@@ -3,13 +3,16 @@ import { concat, mergeMap } from 'rxjs/operators';
 import { EEG_FREQUENCY, PPG_FREQUENCY } from './constants';
 import { EEGReading, PPGReading } from './muse-interfaces';
 
-export interface Sample {
+export interface EEGSample {
     index: number;
     timestamp: number; // milliseconds since epoch
     data: number[];
 }
 
-export function zipSamples(eegReadings: Observable<EEGReading>): Observable<Sample> {
+// tslint:disable
+export interface PPGSample extends EEGSample {}
+
+export function zipSamples(eegReadings: Observable<EEGReading>): Observable<EEGSample> {
     const buffer: EEGReading[] = [];
     let lastTimestamp: number | null = null;
     return eegReadings.pipe(
@@ -44,7 +47,7 @@ export function zipSamples(eegReadings: Observable<EEGReading>): Observable<Samp
 }
 
 // TODO: DRY
-export function zipPPG(ppgReadings: Observable<PPGReading>): Observable<Sample> {
+export function zipPPG(ppgReadings: Observable<PPGReading>): Observable<PPGSample> {
     const buffer: PPGReading[] = [];
     let lastTimestamp: number | null = null;
     return ppgReadings.pipe(
@@ -53,7 +56,7 @@ export function zipPPG(ppgReadings: Observable<PPGReading>): Observable<Sample> 
                 lastTimestamp = reading.timestamp;
                 if (buffer.length) {
                     const result = from([[...buffer]]);
-                    buffer.slice(0, buffer.length, reading);
+                    buffer.splice(0, buffer.length, reading);
                     return result;
                 }
             }
