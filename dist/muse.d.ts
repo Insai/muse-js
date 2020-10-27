@@ -11,7 +11,7 @@ import {
     TelemetryData,
     XYZ,
 } from './lib/muse-interfaces';
-export { zipSamples, EEGSample } from './lib/zip-samples';
+export { zipSamples, EEGSample, PPGSample, zipPPG } from './lib/zip-samples';
 export {
     EEGReading,
     PPGReading,

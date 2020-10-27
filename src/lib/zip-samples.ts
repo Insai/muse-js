@@ -10,7 +10,9 @@ export interface EEGSample {
 }
 
 // tslint:disable
-export interface PPGSample extends EEGSample {}
+export interface PPGSample extends EEGSample {
+    data: number[];
+}
 
 export function zipSamples(eegReadings: Observable<EEGReading>): Observable<EEGSample> {
     const buffer: EEGReading[] = [];
