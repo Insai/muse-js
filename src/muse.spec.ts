@@ -1,14 +1,16 @@
+import { read } from 'fs';
 import { TextDecoder, TextEncoder } from 'text-encoding';
 import { DeviceMock, WebBluetoothMock } from 'web-bluetooth-mock';
 import { EEGReading } from './../dist/lib/muse-interfaces.d';
-import { MuseClient } from './muse';
+import * as c from './lib/constants';
+import { MuseClient, PPGReading } from './muse';
 
 declare var global;
 
 let museDevice: DeviceMock;
 
 function charCodes(s) {
-    return s.split('').map((c) => c.charCodeAt(0));
+    return s.split('').map((ch) => ch.charCodeAt(0));
 }
 
 describe('MuseClient', () => {
@@ -98,7 +100,7 @@ describe('MuseClient', () => {
     describe('eegReadings', () => {
         it('should emit a value for `eegReadings` observable whenever new EEG data is received', async () => {
             const service = museDevice.getServiceMock(0xfe8d);
-            const eeg3Char = service.getCharacteristicMock('273e0006-4c4d-454d-96be-f03bac821358');
+            const eeg3Char = service.getCharacteristicMock(c.MUSE_GATT_ATTR_TP10);
 
             const client = new MuseClient();
             await client.connect();
@@ -136,8 +138,8 @@ describe('MuseClient', () => {
             });
 
             // Timestamp should be about (1000/256.0*12) milliseconds behind the event dispatch time
-            expect(lastReading.timestamp).toBeGreaterThanOrEqual(beforeDispatchTime - 1000 / 256.0 * 12);
-            expect(lastReading.timestamp).toBeLessThanOrEqual(afterDispatchTime - 1000 / 256.0 * 12);
+            expect(lastReading.timestamp).toBeGreaterThanOrEqual(beforeDispatchTime - (1000 / 256.0) * 12);
+            expect(lastReading.timestamp).toBeLessThanOrEqual(afterDispatchTime - (1000 / 256.0) * 12);
         });
 
         it('should report the same timestamp for eeg events with the same sequence', async () => {
@@ -201,7 +203,7 @@ describe('MuseClient', () => {
             eeg1Char.value = new DataView(new Uint8Array([0, 16]).buffer);
             eeg1Char.dispatchEvent(new CustomEvent('characteristicvaluechanged'));
 
-            expect(readings[1].timestamp - readings[0].timestamp).toEqual(-4 * 1000 / (256.0 / 12.0));
+            expect(readings[1].timestamp - readings[0].timestamp).toEqual((-4 * 1000) / (256.0 / 12.0));
         });
 
         it('should handle timestamp wraparound', async () => {
@@ -222,6 +224,127 @@ describe('MuseClient', () => {
             eeg1Char.dispatchEvent(new CustomEvent('characteristicvaluechanged'));
 
             expect(readings[1].timestamp - readings[0].timestamp).toEqual(1000 / (256.0 / 12.0));
+        });
+    });
+    describe('ppgReadings', async () => {
+        it('should emit a value for `ppgReadings` observable whenever new PPG data is received', async () => {
+            const service = museDevice.getServiceMock(0xfe8d);
+            const ppg1Char = service.getCharacteristicMock(c.MUSE_GATT_ATTR_PPG1);
+
+            const client = new MuseClient();
+            await client.connect();
+
+            let lastReading: PPGReading;
+            client.ppgReadings.subscribe((reading) => {
+                lastReading = reading;
+            });
+
+            // TODO: change??
+            ppg1Char.value = new DataView(new Uint8Array([0, 1, 40, 3, 128, 40, 3, 128, 40, 3, 128]).buffer);
+            const beforeDispatchTime = new Date().getTime();
+            ppg1Char.dispatchEvent(new CustomEvent('characteristicvaluechanged'));
+            const afterDispatchTime = new Date().getTime();
+
+            expect(lastReading).toEqual({
+                channel: 0,
+                index: 1,
+                samples: [640, 896, 640, 896, 640, 896],
+                timestamp: expect.any(Number),
+            });
+
+            expect(lastReading.timestamp).toBeGreaterThanOrEqual(
+                beforeDispatchTime - (1000 / c.PPG_FREQUENCY) * c.PPG_SAMPLES_PER_READING,
+            );
+
+            expect(lastReading.timestamp).toBeLessThanOrEqual(
+                afterDispatchTime - (1000 / c.PPG_FREQUENCY) * c.PPG_SAMPLES_PER_READING,
+            );
+        });
+        it('should report the same timestamp for ppg events with the same sequence', async () => {
+            const service = museDevice.getServiceMock(0xfe8d);
+            const ppg1Char = service.getCharacteristicMock(c.MUSE_GATT_ATTR_PPG1);
+            const ppg2Char = service.getCharacteristicMock(c.MUSE_GATT_ATTR_PPG2);
+
+            const client = new MuseClient();
+            await client.connect();
+
+            const readings: PPGReading[] = [];
+            client.ppgReadings.subscribe((reading) => {
+                readings.push(reading);
+            });
+
+            ppg1Char.value = new DataView(new Uint8Array([0, 15]).buffer);
+            ppg1Char.dispatchEvent(new CustomEvent('characteristicvaluechanged'));
+            ppg2Char.value = new DataView(new Uint8Array([0, 15]).buffer);
+            ppg2Char.dispatchEvent(new CustomEvent('characteristicvaluechanged'));
+
+            expect(readings.length).toBe(2);
+            expect(readings[0].channel).toBe(0);
+            expect(readings[1].channel).toBe(1);
+            expect(readings[0].timestamp).toEqual(readings[1].timestamp);
+        });
+        it('should bump the timestmap for subsequent PPG events', async () => {
+            const service = museDevice.getServiceMock(0xfe8d);
+            const ppg1Char = service.getCharacteristicMock(c.MUSE_GATT_ATTR_PPG1);
+
+            const client = new MuseClient();
+            await client.connect();
+
+            const readings: PPGReading[] = [];
+            client.ppgReadings.subscribe((reading) => {
+                readings.push(reading);
+            });
+
+            ppg1Char.value = new DataView(new Uint8Array([0, 15]).buffer);
+            ppg1Char.dispatchEvent(new CustomEvent('characteristicvaluechanged'));
+            ppg1Char.value = new DataView(new Uint8Array([0, 16]).buffer);
+            ppg1Char.dispatchEvent(new CustomEvent('characteristicvaluechanged'));
+
+            expect(readings[1].timestamp - readings[0].timestamp).toEqual(
+                1000 / (c.PPG_FREQUENCY / c.PPG_SAMPLES_PER_READING),
+            );
+        });
+        it('should correctly handle out-of-order PPG events', async () => {
+            const service = museDevice.getServiceMock(0xfe8d);
+            const ppg1Char = service.getCharacteristicMock(c.MUSE_GATT_ATTR_PPG1);
+
+            const client = new MuseClient();
+            await client.connect();
+
+            const readings: PPGReading[] = [];
+            client.ppgReadings.subscribe((reading) => {
+                readings.push(reading);
+            });
+
+            ppg1Char.value = new DataView(new Uint8Array([0, 20]).buffer);
+            ppg1Char.dispatchEvent(new CustomEvent('characteristicvaluechanged'));
+            ppg1Char.value = new DataView(new Uint8Array([0, 16]).buffer);
+            ppg1Char.dispatchEvent(new CustomEvent('characteristicvaluechanged'));
+
+            expect(readings[1].timestamp - readings[0].timestamp).toEqual(
+                (-4 * 1000) / (c.PPG_FREQUENCY / c.PPG_SAMPLES_PER_READING),
+            );
+        });
+        it('should handle timestamp wraparound', async () => {
+            const service = museDevice.getServiceMock(0xfe8d);
+            const ppg1Char = service.getCharacteristicMock(c.MUSE_GATT_ATTR_PPG1);
+
+            const client = new MuseClient();
+            await client.connect();
+
+            const readings: PPGReading[] = [];
+            client.ppgReadings.subscribe((reading) => {
+                readings.push(reading);
+            });
+
+            ppg1Char.value = new DataView(new Uint8Array([0xff, 0xff]).buffer);
+            ppg1Char.dispatchEvent(new CustomEvent('characteristicvaluechanged'));
+            ppg1Char.value = new DataView(new Uint8Array([0, 0]).buffer);
+            ppg1Char.dispatchEvent(new CustomEvent('characteristicvaluechanged'));
+
+            expect(readings[1].timestamp - readings[0].timestamp).toEqual(
+                1000 / (c.PPG_FREQUENCY / c.PPG_SAMPLES_PER_READING),
+            );
         });
     });
 
