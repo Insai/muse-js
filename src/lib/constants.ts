@@ -1,5 +1,7 @@
 export const MUSE_SERVICE = 0xfe8d;
 
+// TODO: clean up redundant uuids constants
+
 export const MUSE_GATT_ATTR_STREAM_TOGGLE = '273e0001-4c4d-454d-96be-f03bac821358';
 export const CONTROL_CHARACTERISTIC = '273e0001-4c4d-454d-96be-f03bac821358';
 
@@ -20,6 +22,7 @@ export const MUSE_GATT_ATTR_TP10 = '273e0006-4c4d-454d-96be-f03bac821358';
 export const MUSE_GATT_ATTR_RIGHTAUX = '273e0007-4c4d-454d-96be-f03bac821358';
 
 export const EEG_FREQUENCY = 256;
+export const EEG_SAMPLES_PER_READING = 12;
 export const EEG_CHARACTERISTICS = [
     MUSE_GATT_ATTR_TP9,
     MUSE_GATT_ATTR_AF7,
@@ -33,7 +36,8 @@ export const MUSE_GATT_ATTR_PPG1 = '273e000f-4c4d-454d-96be-f03bac821358';
 export const MUSE_GATT_ATTR_PPG2 = '273e0010-4c4d-454d-96be-f03bac821358';
 export const MUSE_GATT_ATTR_PPG3 = '273e0011-4c4d-454d-96be-f03bac821358';
 
-export const MUSE_SAMPLING_PPG_RATE = 64;
+export const PPG_FREQUENCY = 64;
+export const PPG_SAMPLES_PER_READING = 6;
 export const PPG_CHARACTERISTICS = [MUSE_GATT_ATTR_PPG1, MUSE_GATT_ATTR_PPG2, MUSE_GATT_ATTR_PPG3];
 
 export const MUSE_ACCELEROMETER_SCALE_FACTOR = 0.0000610352;

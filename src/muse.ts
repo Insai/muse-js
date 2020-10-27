@@ -11,7 +11,14 @@ import {
     TelemetryData,
     XYZ,
 } from './lib/muse-interfaces';
-import { decodeEEGSamples, parseAccelerometer, parseControl, parseGyroscope, parseTelemetry } from './lib/muse-parse';
+import {
+    decodeEEGSamples,
+    decodePPGSamples,
+    parseAccelerometer,
+    parseControl,
+    parseGyroscope,
+    parseTelemetry,
+} from './lib/muse-parse';
 import { decodeResponse, encodeCommand, observableCharacteristic } from './lib/muse-utils';
 
 export { zipSamples, EEGSample } from './lib/zip-samples';
@@ -19,7 +26,7 @@ export { EEGReading, TelemetryData, AccelerometerData, GyroscopeData, XYZ, MuseC
 import * as c from './lib/constants';
 
 // These names match the characteristics defined in EEG_CHARACTERISTICS above
-export const channelNames = ['TP9', 'AF7', 'AF8', 'TP10', 'AUX'];
+export const channelNames = ['TP9', 'AF7', 'AF8', 'TP10', 'AUX', 'PPG1', 'PPG2', 'PPG3'];
 
 export class MuseClient {
     enableAux = false;
@@ -100,7 +107,7 @@ export class MuseClient {
                             electrode: channelIndex,
                             index: eventIndex,
                             samples: decodeEEGSamples(new Uint8Array(data.buffer).subarray(2)),
-                            timestamp: this.getTimestamp(eventIndex),
+                            timestamp: this.getTimestamp(eventIndex, c.EEG_FREQUENCY, c.EEG_SAMPLES_PER_READING),
                         };
                     }),
                 ),
@@ -120,7 +127,14 @@ export class MuseClient {
             ppgObservables.push(
                 (await observableCharacteristic(ppgChar)).pipe(
                     map((data) => {
-                        return data;
+                        const eventIndex = data.getUint16(0);
+                        return {
+                            index: eventIndex,
+                            ppg_channel: channelIndex,
+                            // TODO: start from 2 index??
+                            samples: decodePPGSamples(new Uint8Array(data.buffer).subarray(2)),
+                            timestamp: this.getTimestamp(eventIndex, c.PPG_FREQUENCY, c.PPG_SAMPLES_PER_READING),
+                        };
                     }),
                 ),
             );
@@ -137,7 +151,7 @@ export class MuseClient {
     async start() {
         await this.pause();
         // const preset = this.enableAux ? 'p20' : 'p21';
-        const preset = 'p21';
+        const preset = 'p21'; // TODO: ?
         await this.controlChar.writeValue(encodeCommand(preset));
         await this.controlChar.writeValue(encodeCommand('s'));
         await this.resume();
@@ -175,12 +189,12 @@ export class MuseClient {
         }
     }
 
-    private getTimestamp(eventIndex: number) {
-        const SAMPLES_PER_READING = 12;
-        const READING_DELTA = 1000 * (1.0 / c.EEG_FREQUENCY) * SAMPLES_PER_READING;
+    private getTimestamp(eventIndex: number, samplingRate: number, nSamples: number) {
+        const delta = 1000 * (1.0 / samplingRate) * nSamples;
+
         if (this.lastIndex === null || this.lastTimestamp === null) {
             this.lastIndex = eventIndex;
-            this.lastTimestamp = new Date().getTime() - READING_DELTA;
+            this.lastTimestamp = new Date().getTime() - delta;
         }
 
         // Handle wrap around
@@ -191,12 +205,13 @@ export class MuseClient {
         if (eventIndex === this.lastIndex) {
             return this.lastTimestamp;
         }
+
         if (eventIndex > this.lastIndex) {
-            this.lastTimestamp += READING_DELTA * (eventIndex - this.lastIndex);
+            this.lastTimestamp += delta * (eventIndex - this.lastIndex);
             this.lastIndex = eventIndex;
             return this.lastTimestamp;
         } else {
-            return this.lastTimestamp - READING_DELTA * (this.lastIndex - eventIndex);
+            return this.lastTimestamp - delta * (this.lastIndex - eventIndex);
         }
     }
 }

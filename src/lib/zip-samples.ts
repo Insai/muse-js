@@ -1,6 +1,6 @@
 import { from, Observable } from 'rxjs';
 import { concat, mergeMap } from 'rxjs/operators';
-import { EEG_FREQUENCY } from './../muse';
+import { EEG_FREQUENCY } from './constants';
 import { EEGReading } from './muse-interfaces';
 
 export interface EEGSample {
