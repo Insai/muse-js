@@ -136,6 +136,7 @@ var muse_utils_1 = require('./lib/muse-utils');
 // TODO: export constants for build
 var zip_samples_1 = require('./lib/zip-samples');
 exports.zipSamples = zip_samples_1.zipSamples;
+exports.zipPPG = zip_samples_1.zipPPG;
 exports.channelNames = ['TP9', 'AF7', 'AF8', 'TP10', 'AUX', 'PPG1', 'PPG2', 'PPG3'];
 var MuseClient = /** @class */ (function() {
     function MuseClient() {
