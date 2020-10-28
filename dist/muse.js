@@ -370,6 +370,22 @@ var MuseClient = /** @class */ (function() {
             });
         });
     };
+    MuseClient.prototype.setPreset = function(preset) {
+        if (preset === void 0) {
+            preset = 'p21';
+        }
+        return __awaiter(this, void 0, void 0, function() {
+            return __generator(this, function(_a) {
+                switch (_a.label) {
+                    case 0:
+                        return [4 /*yield*/, this.controlChar.writeValue(muse_utils_1.encodeCommand(preset))];
+                    case 1:
+                        _a.sent();
+                        return [2 /*return*/];
+                }
+            });
+        });
+    };
     MuseClient.prototype.start = function() {
         return __awaiter(this, void 0, void 0, function() {
             var preset;
@@ -380,7 +396,7 @@ var MuseClient = /** @class */ (function() {
                     case 1:
                         _a.sent();
                         preset = this.enableAux ? 'p20' : 'p21';
-                        return [4 /*yield*/, this.controlChar.writeValue(muse_utils_1.encodeCommand(preset))];
+                        return [4 /*yield*/, this.setPreset(preset)];
                     case 2:
                         _a.sent();
                         return [4 /*yield*/, this.controlChar.writeValue(muse_utils_1.encodeCommand('s'))];
