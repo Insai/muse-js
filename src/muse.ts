@@ -158,10 +158,15 @@ export class MuseClient {
         await this.controlChar.writeValue(encodeCommand(cmd));
     }
 
+    async setPreset(preset = 'p21') {
+        await this.controlChar.writeValue(encodeCommand(preset));
+    }
+
     async start() {
         await this.pause();
-        const preset = this.enableAux ? 'p20' : 'p21'; // TODO: make p21 default
-        await this.controlChar.writeValue(encodeCommand(preset));
+        const preset = this.enableAux ? 'p20' : 'p21';
+
+        await this.setPreset(preset);
         await this.controlChar.writeValue(encodeCommand('s'));
         await this.resume();
     }

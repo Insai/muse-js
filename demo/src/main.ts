@@ -57,13 +57,14 @@ import { channelNames, EEGReading, MuseClient, PPGReading } from './../../src/mu
     }
 
     const client = new MuseClient();
-    client.enableAux = true; // TODO: enforces preset p21 needed for PPG
+
     client.connectionStatus.subscribe((status) => {
         console.log(status ? 'Connected!' : 'Disconnected');
     });
 
     try {
-        client.enableAux = true;
+        // client.enableAux = true; // TODO: required for PPG?
+        console.log(client.enableAux);
         await client.connect();
         await client.start();
         document.getElementById('headset-name')!.innerText = client.deviceName;

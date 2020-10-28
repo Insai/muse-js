@@ -44,6 +44,7 @@ export declare class MuseClient {
     private getTimestamp;
     connect(gatt?: BluetoothRemoteGATTServer): Promise<void>;
     sendCommand(cmd: string): Promise<void>;
+    setPreset(preset?: string): Promise<void>;
     start(): Promise<void>;
     pause(): Promise<void>;
     resume(): Promise<void>;
